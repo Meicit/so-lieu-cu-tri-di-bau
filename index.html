@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống theo dõi tiến độ cử tri đi bầu</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+ 
+    <style>
+        :root { --vn-red: #da251d; --dark-blue: #1e3c72; }
+        body { background-color: #f4f7f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .header-panel { background: linear-gradient(135deg, #da251d 0%, #a01a14 100%); color: white; padding: 2rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.2); margin-bottom: 2rem; }
+        
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        
+        .full-width-card-header {
+            background-color: #ffffff; border-left: 6px solid #da251d; cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 18px 25px; font-weight: bold; color: #1e3c72; font-size: 1.1rem;
+        }
+        .full-width-card-header:hover { background-color: #fff8f8; }
+        .full-width-card-header::after { content: '▼'; font-size: 0.9rem; transition: transform 0.3s; }
+        .full-width-card-header.collapsed::after { transform: rotate(-90deg); }
+
+        .table-container-full { overflow-x: auto; width: 100%; }
+        
+        .input-voter { width: 70px; text-align: center; border: 1px solid #ced4da; border-radius: 4px; padding: 3px; font-size: 0.9rem; }
+        .input-total-edit { width: 80px; text-align: center; border: 1px dashed #da251d; background: #fffbe6; font-weight: bold; }
+        
+        .total-cell-wrapper { display: flex; align-items: center; justify-content: center; gap: 4px; }
+        .btn-edit-inline { font-size: 0.7rem; padding: 1px 4px; color: #da251d; border-color: #da251d; }
+
+        .log-section { background: #212529; color: #00ff41; font-family: 'Consolas', monospace; padding: 15px; border-radius: 8px; max-height: 250px; overflow-y: auto; font-size: 0.85rem; }
+        .log-item { border-bottom: 1px solid #333; padding: 5px 0; }
+        
+        th { background-color: #f8f9fa !important; font-size: 0.85rem; text-transform: uppercase; vertical-align: middle !important; }
+        td { font-size: 0.95rem; }
+        .text-unvoted { color: #6c757d; font-weight: 500; }
+        .bg-highlight-unvoted { background-color: #fdf2f2 !important; }
+        .unit-table-header th { color: #ffeb3b !important; text-transform: uppercase; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="header-panel text-center">
+    <h1 class="fw-bold">HỆ THỐNG THEO DÕI TIẾN ĐỘ CỬ TRI ĐI BẦU</h1>
+    <p class="lead text-uppercase mb-0">Dữ liệu tổng hợp và chi tiết 34 khu vực bỏ phiếu</p>
+</div>
+
+<div class="container-fluid px-4">
+    <div class="row mb-4">
+        <div class="col-lg-6"><div class="card p-3 h-100"><canvas id="timeLineChart" height="180"></canvas></div></div>
+        <div class="col-lg-6"><div class="card p-3 h-100"><canvas id="unitBarChart" height="180"></canvas></div></div>
+    </div>
+
+    <div class="card w-100 overflow-hidden">
+        <div class="full-width-card-header collapsed" data-bs-toggle="collapse" data-bs-target="#collapseUnit">
+            <span>1. TỔNG HỢP TỶ LỆ THEO ĐƠN VỊ BẦU CỬ</span>
+        </div>
+        <div id="collapseUnit" class="collapse">
+            <div class="card-body p-0">
+                <table class="table table-striped table-bordered mb-0 text-center align-middle">
+                    <thead class="table-dark unit-table-header">
+                        <tr>
+                            <th>Đơn vị</th>
+                            <th>Tổng số cử tri</th>
+                            <th>Số cử tri đã bầu</th>
+                            <th>Cử tri chưa đi bầu</th>
+                            <th>Tỷ lệ %</th>
+                        </tr>
+                    </thead>
+                    <tbody id="unitSummaryBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card w-100">
+        <div class="full-width-card-header collapsed" data-bs-toggle="collapse" data-bs-target="#collapseKhuVuc">
+            <span>2. CHI TIẾT DỮ LIỆU 34 KHU VỰC BỎ PHIẾU (NHẬP LIỆU)</span>
+        </div>
+        <div id="collapseKhuVuc" class="collapse">
+            <div class="card-body">
+                <div class="d-flex justify-content-end mb-3 gap-2">
+                    <button class="btn btn-success btn-sm px-3" onclick="exportData()">Xuất file CSV báo cáo</button>
+                </div>
+                <div class="table-container-full">
+                    <table class="table table-hover table-bordered align-middle text-center">
+                        <thead class="table-light">
+                            <tr>
+                                <th rowspan="2">STT</th>
+                                <th rowspan="2" style="min-width: 180px;">Khu vực bỏ phiếu</th>
+                                <th rowspan="2">Tổng số</th>
+                                <th colspan="5">Số cử tri đi bầu</th>
+                                <th rowspan="2" class="bg-light">Chưa bầu</th>
+                                <th rowspan="2">Tỷ lệ %</th>
+                            </tr>
+                            <tr>
+                                <th>9:00</th><th>11:30</th><th>15:00</th><th>19:00</th><th>22:00</th>
+                            </tr>
+                        </thead>
+                        <tbody id="voterDataBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card w-100 overflow-hidden">
+        <div class="full-width-card-header" data-bs-toggle="collapse" data-bs-target="#collapseChartDetail">
+            <span style="color: #28a745;">3. BIỂU ĐỒ SO SÁNH TỶ LỆ 34 KHU VỰC BỎ PHIẾU</span>
+        </div>
+        <div id="collapseChartDetail" class="collapse show">
+            <div class="card-body">
+                <div style="width: 100%; overflow-x: auto;">
+                    <div style="min-width: 1500px; height: 500px;"> 
+                        <canvas id="detailAreaChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card w-100 mb-5">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <span class="fw-bold">NHẬT KÝ THAY ĐỔI HỆ THỐNG</span>
+            <button class="btn btn-outline-light btn-sm" onclick="clearLogs()">Xóa lịch sử log</button>
+        </div>
+        <div class="card-body">
+            <div class="log-section" id="logContainer"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const initialData = [
+    {"don_vi": "1", "khu_vuc": "Khu vực bỏ phiếu số 01", "tong": 3046},
+    {"don_vi": "1", "khu_vuc": "Khu vực bỏ phiếu số 02", "tong": 1582},
+    {"don_vi": "1", "khu_vuc": "Khu vực bỏ phiếu số 03", "tong": 1315},
+    {"don_vi": "2", "khu_vuc": "Khu vực bỏ phiếu số 04", "tong": 2948},
+    {"don_vi": "2", "khu_vuc": "Khu vực bỏ phiếu số 05", "tong": 3376},
+    {"don_vi": "3", "khu_vuc": "Khu vực bỏ phiếu số 06", "tong": 3839},
+    {"don_vi": "3", "khu_vuc": "Khu vực bỏ phiếu số 07", "tong": 3540},
+    {"don_vi": "4", "khu_vuc": "Khu vực bỏ phiếu số 08", "tong": 1370},
+    {"don_vi": "4", "khu_vuc": "Khu vực bỏ phiếu số 09", "tong": 3249},
+    {"don_vi": "4", "khu_vuc": "Khu vực bỏ phiếu số 10", "tong": 3242},
+    {"don_vi": "5", "khu_vuc": "Khu vực bỏ phiếu số 11", "tong": 2217},
+    {"don_vi": "5", "khu_vuc": "Khu vực bỏ phiếu số 12", "tong": 1406},
+    {"don_vi": "5", "khu_vuc": "Khu vực bỏ phiếu số 13", "tong": 1372},
+    {"don_vi": "5", "khu_vuc": "Khu vực bỏ phiếu số 14", "tong": 2844},
+    {"don_vi": "6", "khu_vuc": "Khu vực bỏ phiếu số 15", "tong": 2195},
+    {"don_vi": "6", "khu_vuc": "Khu vực bỏ phiếu số 16", "tong": 3105},
+    {"don_vi": "6", "khu_vuc": "Khu vực bỏ phiếu số 17", "tong": 2654},
+    {"don_vi": "6", "khu_vuc": "Khu vực bỏ phiếu số 18", "tong": 1485},
+    {"don_vi": "7", "khu_vuc": "Khu vực bỏ phiếu số 19", "tong": 2247},
+    {"don_vi": "7", "khu_vuc": "Khu vực bỏ phiếu số 20", "tong": 1912},
+    {"don_vi": "7", "khu_vuc": "Khu vực bỏ phiếu số 21", "tong": 3022},
+    {"don_vi": "8", "khu_vuc": "Khu vực bỏ phiếu số 22", "tong": 2551},
+    {"don_vi": "8", "khu_vuc": "Khu vực bỏ phiếu số 23", "tong": 2458},
+    {"don_vi": "8", "khu_vuc": "Khu vực bỏ phiếu số 24", "tong": 1964},
+    {"don_vi": "9", "khu_vuc": "Khu vực bỏ phiếu số 25", "tong": 2666},
+    {"don_vi": "9", "khu_vuc": "Khu vực bỏ phiếu số 26", "tong": 2538},
+    {"don_vi": "9", "khu_vuc": "Khu vực bỏ phiếu số 27", "tong": 2648},
+    {"don_vi": "9", "khu_vuc": "Khu vực bỏ phiếu số 28", "tong": 2102},
+    {"don_vi": "9", "khu_vuc": "Khu vực bỏ phiếu số 29", "tong": 2149},
+    {"don_vi": "10", "khu_vuc": "Khu vực bỏ phiếu số 30", "tong": 3102},
+    {"don_vi": "10", "khu_vuc": "Khu vực bỏ phiếu số 31", "tong": 2198},
+    {"don_vi": "10", "khu_vuc": "Khu vực bỏ phiếu số 32", "tong": 2599},
+    {"don_vi": "10", "khu_vuc": "Khu vực bỏ phiếu số 33", "tong": 2137},
+    {"don_vi": "10", "khu_vuc": "Khu vực bỏ phiếu số 34", "tong": 2702}
+];
+
+let voterData = JSON.parse(localStorage.getItem('voterData_final')) || initialData.map(item => ({
+    ...item, h9: 0, h11: 0, h15: 0, h19: 0, h22: 0
+}));
+let editLogs = JSON.parse(localStorage.getItem('voterLogs_final')) || [];
+let timeLineChart, unitBarChart, detailAreaChart;
+
+function init() { renderTable(); updateUnitSummary(); updateCharts(); renderLogs(); }
+
+function renderTable() {
+    const tbody = document.getElementById('voterDataBody');
+    tbody.innerHTML = '';
+    voterData.forEach((row, index) => {
+        const current = Math.max(row.h9, row.h11, row.h15, row.h19, row.h22);
+        const unvoted = row.tong - current;
+        const p = ((current / row.tong) * 100).toFixed(2);
+        tbody.innerHTML += `
+            <tr>
+                <td>${index + 1}</td>
+                <td class="text-start">${row.khu_vuc}</td>
+                <td>
+                    <div class="total-cell-wrapper">
+                        <input type="number" id="tong-${index}" class="input-total-edit" value="${row.tong}" disabled onchange="saveTotal(${index}, this.value)">
+                        <button class="btn btn-outline-danger btn-edit-inline" onclick="enableEdit(${index})">Sửa</button>
+                    </div>
+                </td>
+                <td><input type="number" class="input-voter" value="${row.h9}" onfocus="this.oldValue=this.value" onchange="updateVoterValue(${index}, 'h9', this.value, '9:00', this.oldValue)"></td>
+                <td><input type="number" class="input-voter" value="${row.h11}" onfocus="this.oldValue=this.value" onchange="updateVoterValue(${index}, 'h11', this.value, '11:30', this.oldValue)"></td>
+                <td><input type="number" class="input-voter" value="${row.h15}" onfocus="this.oldValue=this.value" onchange="updateVoterValue(${index}, 'h15', this.value, '15:00', this.oldValue)"></td>
+                <td><input type="number" class="input-voter" value="${row.h19}" onfocus="this.oldValue=this.value" onchange="updateVoterValue(${index}, 'h19', this.value, '19:00', this.oldValue)"></td>
+                <td><input type="number" class="input-voter" value="${row.h22}" onfocus="this.oldValue=this.value" onchange="updateVoterValue(${index}, 'h22', this.value, '22:00', this.oldValue)"></td>
+                <td class="text-unvoted bg-highlight-unvoted">${unvoted.toLocaleString()}</td>
+                <td class="fw-bold text-danger">${p}%</td>
+            </tr>`;
+    });
+}
+
+function updateUnitSummary() {
+    const summary = {};
+    voterData.forEach(item => {
+        if (!summary[item.don_vi]) summary[item.don_vi] = { tong: 0, current: 0 };
+        summary[item.don_vi].tong += item.tong;
+        summary[item.don_vi].current += Math.max(item.h9, item.h11, item.h15, item.h19, item.h22);
+    });
+    const tbody = document.getElementById('unitSummaryBody');
+    tbody.innerHTML = '';
+    for (let unit in summary) {
+        const s = summary[unit];
+        const p = s.tong > 0 ? ((s.current / s.tong) * 100).toFixed(2) : 0;
+        tbody.innerHTML += `
+            <tr class="fw-bold">
+                <td>ĐƠN VỊ ${unit}</td>
+                <td>${s.tong.toLocaleString()}</td>
+                <td>${s.current.toLocaleString()}</td>
+                <td class="text-unvoted">${(s.tong-s.current).toLocaleString()}</td>
+                <td class="text-primary">${p}%</td>
+            </tr>`;
+    }
+    return summary;
+}
+
+function updateCharts() {
+    const totalVoters = voterData.reduce((a, b) => a + b.tong, 0);
+    const timeData = ['h9', 'h11', 'h15', 'h19', 'h22'].map(h => {
+        const val = voterData.reduce((a, b) => a + b[h], 0);
+        return totalVoters > 0 ? ((val / totalVoters) * 100).toFixed(2) : 0;
+    });
+
+    // 1. Biểu đồ tiến độ
+    if (timeLineChart) timeLineChart.destroy();
+    timeLineChart = new Chart(document.getElementById('timeLineChart'), {
+        type: 'line',
+        data: {
+            labels: ['9:00', '11:30', '15:00', '19:00', '22:00'],
+            datasets: [{ label: 'Tiến độ hệ thống (%)', data: timeData, borderColor: '#da251d', fill: true, backgroundColor: 'rgba(218, 37, 29, 0.1)', tension: 0.3 }]
+        },
+        options: { scales: { y: { min: 0, max: 100 } } }
+    });
+
+    const summary = updateUnitSummary();
+
+    // 2. Biểu đồ Đơn vị (Có số trên đầu)
+    if (unitBarChart) unitBarChart.destroy();
+    unitBarChart = new Chart(document.getElementById('unitBarChart'), {
+        type: 'bar',
+        plugins: [ChartDataLabels],
+        data: {
+            labels: Object.keys(summary).map(u => 'ĐV ' + u),
+            datasets: [{ 
+                label: 'Tỷ lệ % đi bầu', 
+                data: Object.values(summary).map(s => s.tong > 0 ? ((s.current/s.tong)*100).toFixed(2) : 0), 
+                backgroundColor: '#1e3c72',
+                borderRadius: 5
+            }]
+        },
+        options: {
+            scales: { y: { min: 0, max: 115 } },
+            plugins: {
+                datalabels: { anchor: 'end', align: 'top', formatter: v => v + '%', font: { weight: 'bold', size: 11 }, color: '#da251d' },
+                legend: { display: false }
+            }
+        }
+    });
+
+    // 3. Biểu đồ chi tiết 34 Khu vực (Cột đứng, có số trên đầu)
+    if (detailAreaChart) detailAreaChart.destroy();
+    detailAreaChart = new Chart(document.getElementById('detailAreaChart'), {
+        type: 'bar',
+        plugins: [ChartDataLabels],
+        data: {
+            labels: voterData.map(d => d.khu_vuc.replace("Khu vực bỏ phiếu số ", "KV ")),
+            datasets: [{
+                label: 'Tỷ lệ % đi bầu',
+                data: voterData.map(d => {
+                    const cur = Math.max(d.h9, d.h11, d.h15, d.h19, d.h22);
+                    return d.tong > 0 ? ((cur / d.tong) * 100).toFixed(2) : 0;
+                }),
+                backgroundColor: '#28a745',
+                borderRadius: 5,
+                barPercentage: 0.7
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: {
+                y: { min: 0, max: 120, ticks: { callback: v => v + '%' } },
+                x: { ticks: { autoSkip: false, maxRotation: 45, minRotation: 45 } }
+            },
+            plugins: {
+                datalabels: { anchor: 'end', align: 'top', formatter: v => v + '%', font: { weight: 'bold', size: 10 }, color: '#da251d', offset: 2 },
+                legend: { display: false }
+            }
+        }
+    });
+}
+
+function updateVoterValue(index, field, newVal, label, oldVal) {
+    newVal = parseInt(newVal) || 0; oldVal = parseInt(oldVal) || 0;
+    if (newVal !== oldVal) {
+        voterData[index][field] = newVal;
+        addLog(`Cập nhật mốc ${label} - ${voterData[index].khu_vuc}: ${oldVal} → ${newVal}`, 'text-info');
+        saveData(); init();
+    }
+}
+
+function saveTotal(index, newVal) {
+    const oldVal = voterData[index].tong; newVal = parseInt(newVal) || 0;
+    if (oldVal !== newVal) {
+        voterData[index].tong = newVal;
+        addLog(`Sửa TỔNG SỐ - ${voterData[index].khu_vuc}: ${oldVal} → ${newVal}`, 'text-warning');
+        saveData(); init();
+    }
+    document.getElementById(`tong-${index}`).disabled = true;
+}
+
+function enableEdit(index) { const el = document.getElementById(`tong-${index}`); el.disabled = false; el.focus(); el.select(); }
+function addLog(msg, colorClass) {
+    const time = new Date().toLocaleTimeString('vi-VN') + ' ' + new Date().toLocaleDateString('vi-VN');
+    editLogs.unshift({ time, msg, colorClass });
+    if (editLogs.length > 100) editLogs.pop();
+    localStorage.setItem('voterLogs_final', JSON.stringify(editLogs));
+    renderLogs();
+}
+function renderLogs() {
+    const container = document.getElementById('logContainer');
+    if (editLogs.length === 0) { container.innerHTML = '<span class="text-muted">Chưa có dữ liệu...</span>'; return; }
+    container.innerHTML = editLogs.map(l => `<div class="log-item"><span class="text-muted small">[${l.time}]</span> <span class="${l.colorClass}">${l.msg}</span></div>`).join('');
+}
+function clearLogs() { if(confirm('Bạn có chắc muốn xóa lịch sử nhật ký?')) { editLogs=[]; localStorage.removeItem('voterLogs_final'); renderLogs(); } }
+function saveData() { localStorage.setItem('voterData_final', JSON.stringify(voterData)); }
+
+function exportData() {
+    let csv = "\ufeffSTT,Khu Vuc,Tong Cu Tri,Chua Bau,9h00,11h30,15h00,19h00,22h00,Ty Le %\n";
+    voterData.forEach((r, i) => { 
+        const cur = Math.max(r.h9, r.h11, r.h15, r.h19, r.h22);
+        csv += `${i+1},${r.khu_vuc},${r.tong},${r.tong-cur},${r.h9},${r.h11},${r.h15},${r.h19},${r.h22},${((cur/r.tong)*100).toFixed(2)}\n`; 
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a"); link.href = URL.createObjectURL(blob);
+    link.setAttribute("download", "bao_cao_bau_cu.csv"); link.click();
+}
+
+init();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
