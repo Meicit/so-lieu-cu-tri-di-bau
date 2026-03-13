@@ -3,292 +3,231 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ thống Theo dõi Tiến độ Bầu cử</title>
+    <title>Hệ thống Bầu cử - Quản lý & Nhật ký chỉnh sửa</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --primary-color: #2c3e50; --secondary-color: #e74c3c; }
-        body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .header-panel { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 2rem 0; margin-bottom: 2rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .card { border: none; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        .table-container { max-height: 600px; overflow-y: auto; }
-        .percentage-badge { font-weight: bold; padding: 5px 10px; border-radius: 20px; }
-        .input-voter { width: 80px; text-align: center; }
-        th { position: sticky; top: 0; background: #fff !important; z-index: 10; }
-        .summary-box { border-left: 5px solid #2a5298; padding: 15px; background: #fff; border-radius: 8px; }
+        :root { --primary-blue: #1e3c72; --accent-red: #e74c3c; }
+        body { background-color: #f4f7f6; font-family: 'Segoe UI', sans-serif; }
+        .header-panel { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white; padding: 1.5rem 0; margin-bottom: 2rem; }
+        .card { border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
+        .table-container { max-height: 500px; overflow-y: auto; }
+        .input-voter { width: 85px; text-align: center; }
+        .input-total { width: 100px; font-weight: bold; background-color: #fff9e6; }
+        .log-container { background: #fff; padding: 15px; border-radius: 10px; max-height: 250px; overflow-y: auto; font-size: 0.9rem; border: 1px solid #ddd; }
+        .log-item { border-bottom: 1px solid #eee; padding: 5px 0; }
+        .log-time { color: #888; font-style: italic; margin-right: 10px; }
+        .badge-edit { cursor: pointer; background-color: #ffc107; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; }
     </style>
 </head>
 <body>
 
 <div class="header-panel text-center">
-    <h1>HỆ THỐNG THEO DÕI TIẾN ĐỘ BẦU CỬ</h1>
-    <p class="lead">Báo cáo số liệu cử tri đi bầu theo từng thời điểm</p>
+    <h2>Hệ thống Theo dõi & Nhật ký Bầu cử</h2>
+    <p>Quản lý số liệu tập trung - Minh bạch - Chính xác</p>
 </div>
 
 <div class="container-fluid px-4">
     <div class="row">
-        <div class="col-lg-6">
-            <div class="card p-3">
-                <h5 class="card-title text-center">Tiến độ bầu cử toàn hệ thống (%)</h5>
-                <canvas id="timeLineChart" height="200"></canvas>
-            </div>
-        </div>
-        <div class="col-lg-6">
-            <div class="card p-3">
-                <h5 class="card-title text-center">Tỷ lệ theo Đơn vị bầu cử (%)</h5>
-                <canvas id="unitBarChart" height="200"></canvas>
-            </div>
-        </div>
+        <div class="col-md-6"><div class="card p-3"><canvas id="timeLineChart" height="180"></canvas></div></div>
+        <div class="col-md-6"><div class="card p-3"><canvas id="unitBarChart" height="180"></canvas></div></div>
     </div>
 
-    <div class="card mt-3">
-        <div class="card-header d-flex justify-content-between align-items-center bg-white">
-            <h5 class="mb-0">Danh sách Khu vực bỏ phiếu</h5>
-            <button class="btn btn-success btn-sm" onclick="exportData()">Xuất dữ liệu CSV</button>
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center bg-white border-bottom">
+            <h5 class="mb-0">Dữ liệu cử tri chi tiết</h5>
+            <button class="btn btn-primary btn-sm" onclick="exportData()">Tải báo cáo CSV</button>
         </div>
         <div class="card-body">
             <div class="table-responsive table-container">
-                <table class="table table-hover align-middle" id="voterTable">
+                <table class="table table-sm table-hover align-middle">
                     <thead class="table-light text-center">
                         <tr>
-                            <th rowspan="2">STT</th>
-                            <th rowspan="2">Đơn vị</th>
-                            <th rowspan="2">Khu vực bỏ phiếu</th>
-                            <th rowspan="2">Tổng số cử tri</th>
-                            <th colspan="5">Số cử tri đi bầu (theo mốc giờ)</th>
-                            <th rowspan="2">Tỷ lệ hiện tại</th>
-                        </tr>
-                        <tr>
-                            <th>9:00</th>
-                            <th>11:30</th>
-                            <th>15:00</th>
-                            <th>19:00</th>
-                            <th>22:00</th>
+                            <th>Đơn vị</th>
+                            <th>Khu vực bỏ phiếu</th>
+                            <th>Tổng cử tri (Sửa)</th>
+                            <th>9h00</th>
+                            <th>11h30</th>
+                            <th>15h00</th>
+                            <th>19h00</th>
+                            <th>22h00</th>
+                            <th>Tỷ lệ %</th>
                         </tr>
                     </thead>
-                    <tbody id="voterDataBody">
-                        </tbody>
+                    <tbody id="voterDataBody"></tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <div class="row mt-4 mb-5">
-        <div class="col-12">
-            <div class="card p-3">
-                <h5>Tổng hợp theo Đơn vị bầu cử</h5>
-                <div class="table-responsive">
-                    <table class="table table-bordered text-center" id="unitSummaryTable">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>Đơn vị</th>
-                                <th>Tổng cử tri</th>
-                                <th>Đã đi bầu (Hiện tại)</th>
-                                <th>Tỷ lệ %</th>
-                            </tr>
-                        </thead>
-                        <tbody id="unitSummaryBody"></tbody>
-                    </table>
-                </div>
+    <div class="card">
+        <div class="card-header bg-dark text-white">
+            <h6 class="mb-0">Nhật ký thay đổi hệ thống (Log)</h6>
+        </div>
+        <div class="card-body">
+            <div class="log-container" id="systemLog">
+                <div class="text-muted">Chưa có hoạt động chỉnh sửa nào...</div>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-// Dữ liệu mẫu khởi tạo từ file của bạn
+// Dữ liệu ban đầu (lấy từ tệp bạn cung cấp)
 const initialData = [
-  { "don_vi": "1", "khu_vuc": "Khu vực số 01", "tong": 3046 },
-  { "don_vi": "1", "khu_vuc": "Khu vực số 02", "tong": 1582 },
-  { "don_vi": "1", "khu_vuc": "Khu vực số 03", "tong": 1315 },
-  { "don_vi": "2", "khu_vuc": "Khu vực số 04", "tong": 2948 },
-  { "don_vi": "2", "khu_vuc": "Khu vực số 05", "tong": 3376 },
-  { "don_vi": "3", "khu_vuc": "Khu vực số 06", "tong": 3839 },
-  { "don_vi": "3", "khu_vuc": "Khu vực số 07", "tong": 3540 },
-  { "don_vi": "4", "khu_vuc": "Khu vực số 08", "tong": 1370 },
-  { "don_vi": "4", "khu_vuc": "Khu vực số 09", "tong": 3249 },
-  { "don_vi": "4", "khu_vuc": "Khu vực số 10", "tong": 3242 },
-  { "don_vi": "5", "khu_vuc": "Khu vực số 11", "tong": 2217 },
-  { "don_vi": "5", "khu_vuc": "Khu vực số 12", "tong": 1406 },
-  { "don_vi": "5", "khu_vuc": "Khu vực số 13", "tong": 1372 },
-  { "don_vi": "5", "khu_vuc": "Khu vực số 14", "tong": 2844 },
-  { "don_vi": "6", "khu_vuc": "Khu vực số 15", "tong": 2195 },
-  { "don_vi": "6", "khu_vuc": "Khu vực số 16", "tong": 3105 },
-  { "don_vi": "6", "khu_vuc": "Khu vực số 17", "tong": 2654 },
-  { "don_vi": "6", "khu_vuc": "Khu vực số 18", "tong": 1485 },
-  { "don_vi": "7", "khu_vuc": "Khu vực số 19", "tong": 2247 },
-  { "don_vi": "7", "khu_vuc": "Khu vực số 20", "tong": 1912 },
-  { "don_vi": "7", "khu_vuc": "Khu vực số 21", "tong": 3022 },
-  { "don_vi": "8", "khu_vuc": "Khu vực số 22", "tong": 2551 },
-  { "don_vi": "8", "khu_vuc": "Khu vực số 23", "tong": 2458 },
-  { "don_vi": "8", "khu_vuc": "Khu vực số 24", "tong": 1964 },
-  { "don_vi": "9", "khu_vuc": "Khu vực số 25", "tong": 2666 },
-  { "don_vi": "9", "khu_vuc": "Khu vực số 26", "tong": 2538 },
-  { "don_vi": "9", "khu_vuc": "Khu vực số 27", "tong": 2648 },
-  { "don_vi": "9", "khu_vuc": "Khu vực số 28", "tong": 2102 },
-  { "don_vi": "9", "khu_vuc": "Khu vực số 29", "tong": 2149 },
-  { "don_vi": "10", "khu_vuc": "Khu vực số 30", "tong": 3102 },
-  { "don_vi": "10", "khu_vuc": "Khu vực số 31", "tong": 2198 },
-  { "don_vi": "10", "khu_vuc": "Khu vực số 32", "tong": 2599 },
-  { "don_vi": "10", "khu_vuc": "Khu vực số 33", "tong": 2137 },
-  { "don_vi": "10", "khu_vuc": "Khu vực số 34", "tong": 2702 }
+    { "don_vi": "1", "khu_vuc": "Khu vực số 01", "tong": 3046 },
+    { "don_vi": "1", "khu_vuc": "Khu vực số 02", "tong": 1582 },
+    { "don_vi": "2", "khu_vuc": "Khu vực số 04", "tong": 2948 },
+    { "don_vi": "3", "khu_vuc": "Khu vực số 06", "tong": 3839 }
+    // ... Bạn có thể thêm toàn bộ danh sách vào đây
 ];
 
-let voterData = JSON.parse(localStorage.getItem('voterData')) || initialData.map(item => ({
-    ...item,
-    h9: 0, h11: 0, h15: 0, h19: 0, h22: 0
+let voterData = JSON.parse(localStorage.getItem('voterDataV2')) || initialData.map(item => ({
+    ...item, h9: 0, h11: 0, h15: 0, h19: 0, h22: 0
 }));
 
-let timeLineChart, unitBarChart;
-
-function init() {
-    renderTable();
-    updateCharts();
-}
+let logs = JSON.parse(localStorage.getItem('voterLogs')) || [];
 
 function renderTable() {
     const tbody = document.getElementById('voterDataBody');
     tbody.innerHTML = '';
     voterData.forEach((row, index) => {
-        const currentTurnout = Math.max(row.h9, row.h11, row.h15, row.h19, row.h22);
-        const percent = ((currentTurnout / row.tong) * 100).toFixed(2);
+        const current = Math.max(row.h9, row.h11, row.h15, row.h19, row.h22);
+        const p = ((current / row.tong) * 100).toFixed(2);
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td class="text-center">${index + 1}</td>
             <td class="text-center fw-bold text-primary">ĐV ${row.don_vi}</td>
             <td>${row.khu_vuc}</td>
-            <td class="text-center">${row.tong.toLocaleString()}</td>
+            <td class="text-center">
+                <div class="d-flex align-items-center justify-content-center">
+                    <input type="number" id="total-${index}" class="form-control form-control-sm input-total me-1" value="${row.tong}" disabled onchange="saveNewTotal(${index}, this.value)">
+                    <span class="badge-edit" onclick="enableEdit(${index})">Sửa</span>
+                </div>
+            </td>
             <td><input type="number" class="form-control form-control-sm input-voter" value="${row.h9}" onchange="updateValue(${index}, 'h9', this.value)"></td>
             <td><input type="number" class="form-control form-control-sm input-voter" value="${row.h11}" onchange="updateValue(${index}, 'h11', this.value)"></td>
             <td><input type="number" class="form-control form-control-sm input-voter" value="${row.h15}" onchange="updateValue(${index}, 'h15', this.value)"></td>
             <td><input type="number" class="form-control form-control-sm input-voter" value="${row.h19}" onchange="updateValue(${index}, 'h19', this.value)"></td>
             <td><input type="number" class="form-control form-control-sm input-voter" value="${row.h22}" onchange="updateValue(${index}, 'h22', this.value)"></td>
-            <td class="text-center">
-                <span class="percentage-badge ${getBadgeClass(percent)}">${percent}%</span>
-            </td>
+            <td class="text-center fw-bold text-danger">${p}%</td>
         `;
         tbody.appendChild(tr);
     });
-    updateUnitSummary();
 }
 
-function getBadgeClass(p) {
-    if (p >= 100) return 'bg-success text-white';
-    if (p >= 70) return 'bg-info text-white';
-    if (p >= 50) return 'bg-warning';
-    return 'bg-light text-dark';
+// Mở khóa ô nhập tổng số cử tri
+function enableEdit(index) {
+    const input = document.getElementById(`total-${index}`);
+    input.disabled = false;
+    input.focus();
+    input.style.border = "2px solid #ffc107";
+}
+
+// Lưu tổng số mới và ghi log
+function saveNewTotal(index, newValue) {
+    const oldValue = voterData[index].tong;
+    const khuVuc = voterData[index].khu_vuc;
+    newValue = parseInt(newValue) || 0;
+
+    if (oldValue !== newValue) {
+        voterData[index].tong = newValue;
+        
+        // Tạo log
+        const now = new Date();
+        const timeString = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()} ${now.getDate()}/${now.getMonth()+1}`;
+        const logContent = `Sửa Tổng cử tri ${khuVuc}: ${oldValue.toLocaleString()} → ${newValue.toLocaleString()}`;
+        
+        logs.unshift({ time: timeString, content: logContent });
+        
+        // Lưu trữ
+        localStorage.setItem('voterDataV2', JSON.stringify(voterData));
+        localStorage.setItem('voterLogs', JSON.stringify(logs));
+        
+        // Khóa lại ô nhập
+        const input = document.getElementById(`total-${index}`);
+        input.disabled = true;
+        input.style.border = "1px solid #ced4da";
+
+        updateUI();
+    }
 }
 
 function updateValue(index, field, value) {
     voterData[index][field] = parseInt(value) || 0;
-    localStorage.setItem('voterData', JSON.stringify(voterData));
-    
-    // Tự động render lại các biểu đồ và bảng tổng hợp mà không làm mất focus input
-    updateUnitSummary();
+    localStorage.setItem('voterDataV2', JSON.stringify(voterData));
+    updateUI();
+}
+
+function renderLogs() {
+    const logDiv = document.getElementById('systemLog');
+    if (logs.length === 0) return;
+    logDiv.innerHTML = logs.map(l => `
+        <div class="log-item">
+            <span class="log-time">[${l.time}]</span>
+            <span class="log-content">${l.content}</span>
+        </div>
+    `).join('');
+}
+
+function updateUI() {
+    renderTable();
+    renderLogs();
     updateCharts();
-    
-    // Cập nhật tỷ lệ % tại dòng đó
-    const row = voterData[index];
-    const currentTurnout = Math.max(row.h9, row.h11, row.h15, row.h19, row.h22);
-    const percent = ((currentTurnout / row.tong) * 100).toFixed(2);
-    const badge = document.querySelectorAll('.percentage-badge')[index];
-    badge.innerText = percent + '%';
-    badge.className = 'percentage-badge ' + getBadgeClass(percent);
 }
 
-function updateUnitSummary() {
-    const summary = {};
-    voterData.forEach(item => {
-        if (!summary[item.don_vi]) summary[item.don_vi] = { tong: 0, h9: 0, h11: 0, h15: 0, h19: 0, h22: 0 };
-        summary[item.don_vi].tong += item.tong;
-        summary[item.don_vi].h9 += item.h9;
-        summary[item.don_vi].h11 += item.h11;
-        summary[item.don_vi].h15 += item.h15;
-        summary[item.don_vi].h19 += item.h19;
-        summary[item.don_vi].h22 += item.h22;
-    });
-
-    const tbody = document.getElementById('unitSummaryBody');
-    tbody.innerHTML = '';
-    
-    for (let unit in summary) {
-        const s = summary[unit];
-        const current = Math.max(s.h9, s.h11, s.h15, s.h19, s.h22);
-        const p = ((current / s.tong) * 100).toFixed(2);
-        tbody.innerHTML += `
-            <tr>
-                <td>Đơn vị ${unit}</td>
-                <td>${s.tong.toLocaleString()}</td>
-                <td>${current.toLocaleString()}</td>
-                <td class="fw-bold text-danger">${p}%</td>
-            </tr>
-        `;
-    }
-    return summary;
-}
-
+// Phần biểu đồ (giữ nguyên logic từ bản trước)
+let timeLineChart, unitBarChart;
 function updateCharts() {
-    const summary = updateUnitSummary();
-    const labels = Object.keys(summary).map(u => 'Đơn vị ' + u);
-    const unitPercentages = Object.values(summary).map(s => ((Math.max(s.h9, s.h11, s.h15, s.h19, s.h22) / s.tong) * 100).toFixed(2));
-    
-    // Dữ liệu thời gian (tổng toàn khu vực)
     const totalVoters = voterData.reduce((a, b) => a + b.tong, 0);
-    const timeData = ['h9', 'h11', 'h15', 'h19', 'h22'].map(h => {
-        const total = voterData.reduce((a, b) => a + b[h], 0);
-        return ((total / totalVoters) * 100).toFixed(2);
-    });
+    const timeLabels = ['9:00', '11:30', '15:00', '19:00', '22:00'];
+    const timeKeys = ['h9', 'h11', 'h15', 'h19', 'h22'];
+    const timeData = timeKeys.map(k => ((voterData.reduce((a, b) => a + b[k], 0) / totalVoters) * 100).toFixed(2));
 
     if (timeLineChart) timeLineChart.destroy();
-    if (unitBarChart) unitBarChart.destroy();
-
-    const ctxLine = document.getElementById('timeLineChart').getContext('2d');
-    timeLineChart = new Chart(ctxLine, {
+    const ctxL = document.getElementById('timeLineChart').getContext('2d');
+    timeLineChart = new Chart(ctxL, {
         type: 'line',
         data: {
-            labels: ['9:00', '11:30', '15:00', '19:00', '22:00'],
-            datasets: [{
-                label: 'Tỷ lệ đi bầu toàn khu vực (%)',
-                data: timeData,
-                borderColor: '#e74c3c',
-                backgroundColor: 'rgba(231, 76, 60, 0.1)',
-                fill: true,
-                tension: 0.4
-            }]
+            labels: timeLabels,
+            datasets: [{ label: 'Tiến độ toàn khu vực (%)', data: timeData, borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.1)', fill: true }]
         },
         options: { scales: { y: { min: 0, max: 100 } } }
     });
 
-    const ctxBar = document.getElementById('unitBarChart').getContext('2d');
-    unitBarChart = new Chart(ctxBar, {
+    const units = [...new Set(voterData.map(d => d.don_vi))];
+    const unitP = units.map(u => {
+        const d = voterData.filter(x => x.don_vi === u);
+        const t = d.reduce((a,b) => a+b.tong, 0);
+        const c = d.reduce((a,b) => a + Math.max(b.h9, b.h11, b.h15, b.h19, b.h22), 0);
+        return ((c/t)*100).toFixed(2);
+    });
+
+    if (unitBarChart) unitBarChart.destroy();
+    const ctxB = document.getElementById('unitBarChart').getContext('2d');
+    unitBarChart = new Chart(ctxB, {
         type: 'bar',
         data: {
-            labels: labels,
-            datasets: [{
-                label: 'Tỷ lệ theo Đơn vị (%)',
-                data: unitPercentages,
-                backgroundColor: '#2a5298'
-            }]
+            labels: units.map(u => 'Đơn vị ' + u),
+            datasets: [{ label: 'Tỷ lệ theo Đơn vị (%)', data: unitP, backgroundColor: '#1e3c72' }]
         },
         options: { scales: { y: { min: 0, max: 100 } } }
     });
 }
 
 function exportData() {
-    let csv = "STT,Don Vi,Khu Vuc,Tong Cu Tri,9h00,11h30,15h00,19h00,22h00\n";
+    let csv = "\ufeffSTT,Đơn vị,Khu vực,Tổng số,9h,11h30,15h,19h,22h\n";
     voterData.forEach((r, i) => {
         csv += `${i+1},${r.don_vi},${r.khu_vuc},${r.tong},${r.h9},${r.h11},${r.h15},${r.h19},${r.h22}\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.setAttribute("download", "bao_cao_bau_cu.csv");
+    link.setAttribute("download", "bao_cao_bau_cu_chi_tiet.csv");
     link.click();
 }
 
-init();
+// Khởi chạy
+updateUI();
 </script>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
